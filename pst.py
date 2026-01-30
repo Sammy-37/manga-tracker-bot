@@ -148,8 +148,8 @@ filenames = os.listdir(filepath)
 N = len(filenames)
 
 pdf_images = args.pdf
-show_images = True
-save_images = args.nosaveimage
+show_images = False
+save_images = True
 save_bboxjson = args.bboxjson
 
 # Static parameters
