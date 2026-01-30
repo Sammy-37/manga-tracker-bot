@@ -1,46 +1,43 @@
-import cv2
 import os
-import numpy as np
-if not os.path.exists("panels"):
-    os.makedirs("panels")
+import subprocess
+import shutil
+
+output_dir = "panels"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
 def extract_panels(image_path):
-    img = cv2.imread(image_path)
-    if img is None:
-        print("Error: Could not read image.")
-        return
+    print(f"Processing {image_path}...")
     
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    base_name = os.path.splitext(os.path.basename(image_path))[0]
+    expected_output_folder = base_name 
 
-    _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+    command = [
+        "python", "pst.py",
+        "--filepath", image_path,
+        "--nosaveimage" 
+    ]
+    
+    try:
+        subprocess.run(command, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error processing image: {e}")
+        return
 
-    kernel = np.ones((5,5),np.uint8)
-
-    dilate = cv2.dilate(thresh,kernel,iterations=1)
-    contours,_ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    height,width=img.shape[:2]
-    total_area=width*height
-    min_area=total_area*0.03
-
-    panel_count = 0
-
-    for c in contours:
-        x, y, w, h = cv2.boundingRect(c)
+    if os.path.exists(expected_output_folder):
+        files = sorted(os.listdir(expected_output_folder))
         
-        current_area = w*h
-        aspect_ratio=w/h
-
-        if current_area < min_area:
-            continue
-        if aspect_ratio > 5 or aspect_ratio <0.2:
-            continue
-
-        crop = img[y:y+h, x:x+w]
-
-        filename = f"panels/panel_{panel_count}.jpg"
-        cv2.imwrite(filename, crop)
-        print(f"Saved {filename}")
-        panel_count += 1
+        for i, f in enumerate(files):
+            src = os.path.join(expected_output_folder, f)
+            
+            new_name = f"panel_{i}.jpg"
+            dst = os.path.join(output_dir, new_name)
+            
+            shutil.move(src, dst)
+            print(f"Saved {dst}")
+        
+        os.rmdir(expected_output_folder)
+    else:
+        print("No panels found or tool failed.")
 
 extract_panels("raw_pages/test.jpg")
