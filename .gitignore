@@ -13,3 +13,8 @@ storage/
 
 # Ignore OS files
 .DS_Store
+
+# Ignore the AI models
+*.pt
+*.pth
+*.onnx

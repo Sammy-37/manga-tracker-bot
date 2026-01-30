@@ -1,45 +1,61 @@
 import os
-import subprocess
+import cv2
 import shutil
+from ultralytics import YOLO
 
-output_dir = "panels"
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
+# 1. LOAD THE AI MODEL
+# We load the weights we just downloaded.
+model = YOLO("manga_yolo.pt")
 
 def extract_folder(folder_path):
-    print(f"Processing folder: {folder_path}...")
+    print(f"AI Scanning folder: {folder_path}...")
     
-    # 1. Run the tool on the entire FOLDER
-    command = ["python", "pst.py", "--filepath", folder_path, "--nosaveimage"]
-    
-    try:
-        subprocess.run(command, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error: {e}")
-        return
+    # Get all images
+    image_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
 
-    # 2. Loop through all images in the input folder to find their outputs
-    # (pst.py creates a folder named after each image file)
-    if os.path.exists(folder_path):
-        image_files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.jpg', '.png'))]
-    
     for img_file in image_files:
-        base_name = os.path.splitext(img_file)[0] # e.g. "test"
-        tool_output_folder = base_name 
+        full_path = os.path.join(folder_path, img_file)
         
-        # If the tool successfully created a folder for this image...
-        if os.path.exists(tool_output_folder):
-            files = sorted(os.listdir(tool_output_folder))
-            
-            # Move and rename the panels
-            for i, f in enumerate(files):
-                src = os.path.join(tool_output_folder, f)
-                new_name = f"{base_name}_p{i}.jpg" # e.g. "test_p0.jpg"
-                dst = os.path.join("panels", new_name)
-                shutil.move(src, dst)
-            
-            # Clean up the empty temp folder
-            os.rmdir(tool_output_folder)
-            print(f"✅ Extracted {len(files)} panels from {img_file}")
+        # 2. RUN INFERENCE (The Magic Step)
+        # conf=0.5 means "Only keep boxes you are 50% sure about"
+        results = model.predict(full_path, conf=0.5, verbose=False)
+        
+        # results is a list (one per image). We only sent one.
+        result = results[0]
+        
+        # 3. PROCESS RESULTS
+        # The AI returns boxes in format: [x, y, x2, y2]
+        boxes = result.boxes.xyxy.cpu().numpy()
+        
+        if len(boxes) == 0:
+            print(f"⚠️ No panels found in {img_file}")
+            continue
 
-extract_folder("raw_pages/")
+        # Sort panels top-to-bottom so they are in reading order
+        # (We sort by the Y-coordinate of the top-left corner)
+        boxes = sorted(boxes, key=lambda b: b[1])
+        
+        # Load the original image to crop it
+        original_img = cv2.imread(full_path)
+        
+        print(f"✅ Found {len(boxes)} panels in {img_file}")
+        
+        # 4. CROP AND SAVE
+        base_name = os.path.splitext(img_file)[0]
+        
+        for i, box in enumerate(boxes):
+            x1, y1, x2, y2 = map(int, box) # Convert decimals to integers
+            
+            # Crop: image[y:y2, x:x2]
+            crop = original_img[y1:y2, x1:x2]
+            
+            # Save
+            output_filename = f"panels/{base_name}_p{i}.jpg"
+            cv2.imwrite(output_filename, crop)
+            print(f"   Saved {output_filename}")
+
+# Run it
+if not os.path.exists("panels"):
+    os.makedirs("panels")
+
+extract_folder("raw_pages")
