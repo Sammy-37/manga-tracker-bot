@@ -4,7 +4,7 @@ import shutil
 from ultralytics import YOLO
 
 # 1. LOAD THE AI MODEL
-# We load the weights we just downloaded.
+
 model = YOLO("manga_yolo.pt")
 
 def extract_folder(folder_path):
@@ -28,7 +28,7 @@ def extract_folder(folder_path):
         boxes = result.boxes.xyxy.cpu().numpy()
         
         if len(boxes) == 0:
-            print(f"⚠️ No panels found in {img_file}")
+            print(f"No panels found in {img_file}")
             continue
 
         # Sort panels top-to-bottom so they are in reading order
@@ -38,7 +38,7 @@ def extract_folder(folder_path):
         # Load the original image to crop it
         original_img = cv2.imread(full_path)
         
-        print(f"✅ Found {len(boxes)} panels in {img_file}")
+        print(f"Found {len(boxes)} panels in {img_file}")
         
         # 4. CROP AND SAVE
         base_name = os.path.splitext(img_file)[0]
