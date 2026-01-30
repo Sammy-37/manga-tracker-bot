@@ -1,0 +1,15 @@
+# Ignore the Python Virtual Environment
+venv/
+__pycache__/
+*.pyc
+
+# Ignore the Database (Local data only)
+*.db
+
+# Ignore the Data Folders (Don't upload images!)
+panels/
+raw_pages/
+storage/
+
+# Ignore OS files
+.DS_Store
